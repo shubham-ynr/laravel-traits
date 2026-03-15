@@ -1,6 +1,6 @@
 # 🛠️ Laravel Traits
 
-> Plug-and-play Eloquent traits for Laravel — drop them into any model and get a full query API or automatic exchange-rate management with zero boilerplate.
+> Plug-and-play Eloquent traits for Laravel — drop them into any model and get a full query API, automatic exchange-rate management, or complete media handling with zero boilerplate.
 
 [![PHP](https://img.shields.io/badge/PHP-8.1%2B-blue?logo=php)](https://php.net)
 [![Laravel](https://img.shields.io/badge/Laravel-9%20|%2010%20|%2011-red?logo=laravel)](https://laravel.com)
@@ -9,10 +9,10 @@
 [![Issues](https://img.shields.io/github/issues/shubham-ynr/laravel-traits)](https://github.com/shubham-ynr/laravel-traits/issues)
 [![Last Commit](https://img.shields.io/github/last-commit/shubham-ynr/laravel-traits)](https://github.com/shubham-ynr/laravel-traits/commits/main)
 
-Stop writing the same controller logic over and over. These traits drop straight into your Eloquent models and give you production-ready features — search, filtering, sorting, pagination, currency management, exchange rates — all driven by HTTP query parameters or simple method calls.
+Stop writing the same controller logic over and over. These traits drop straight into your Eloquent models and give you production-ready features — search, filtering, sorting, pagination, media uploads with WebP compression, currency management, and exchange rates — all driven by HTTP query parameters or simple method calls.
 
 **Share this repo:**
-[![Share on Twitter](https://img.shields.io/badge/Share-Twitter-1DA1F2?logo=twitter&logoColor=white)](https://twitter.com/intent/tweet?text=Just%20found%20this%20awesome%20Laravel%20traits%20library%20-%20QueryBuilder%20%26%20CurrencyHandler%20for%20%40laravelphp%20%F0%9F%94%A5&url=https%3A%2F%2Fgithub.com%2Fshubham-ynr%2Flaravel-traits&hashtags=laravel,php,opensource)
+[![Share on Twitter](https://img.shields.io/badge/Share-Twitter-1DA1F2?logo=twitter&logoColor=white)](https://twitter.com/intent/tweet?text=Just%20found%20this%20awesome%20Laravel%20traits%20library%20-%20QueryBuilder%2C%20CurrencyHandler%20%26%20HasMedia%20for%20%40laravelphp%20%F0%9F%94%A5&url=https%3A%2F%2Fgithub.com%2Fshubham-ynr%2Flaravel-traits&hashtags=laravel,php,opensource)
 [![Share on LinkedIn](https://img.shields.io/badge/Share-LinkedIn-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fgithub.com%2Fshubham-ynr%2Flaravel-traits)
 
 ---
@@ -23,6 +23,7 @@ Stop writing the same controller logic over and over. These traits drop straight
 |---|---|
 | [`QueryBuilder`](#-querybuilder-trait) | Full query API for any model — search, filters, sorting, pagination, eager loading, soft deletes |
 | [`CurrencyHandler`](#-currencyhandler-trait) | Automatic exchange-rate management — fetch, sync, convert, format, default swapping |
+| [`HasMedia`](#-hasmedia-trait) | Complete media handling — upload, WebP compression, public/private storage, auto URL resolution in JSON |
 
 ---
 
@@ -34,7 +35,8 @@ Copy the trait file(s) you need into `app/Traits/`, add the trait to your model,
 app/
 └── Traits/
     ├── QueryBuilder.php
-    └── CurrencyHandler.php
+    ├── CurrencyHandler.php
+    └── HasMedia.php
 ```
 
 No service provider. No config file. No queue worker. Just `use TraitName;` on your model.
@@ -208,6 +210,150 @@ Schedule::call(fn () => (new Currency)->sync())->dailyAt('00:00');
 
 ---
 
+## 🖼️ HasMedia Trait
+
+> Complete media handling for Laravel API — upload, WebP compression, public/private storage, and automatic URL resolution in every JSON response.
+
+### How it works
+
+```
+POST /api/media/upload  →  { "id": 1 }
+         ↓
+Save  logo_id = 1  on your model
+         ↓
+GET  /api/brand/1  →  { "logo_url": "https://..." }
+```
+
+Upload returns a media ID. Store it in any `*_id` column. The trait automatically replaces every `*_id` with a `*_url` in every JSON response — no extra serialization code needed.
+
+### What it does
+
+Add `use HasMedia;` to any model and this becomes your entire media workflow:
+
+```php
+// Frontend — Step 1: upload the file
+const { data } = await axios.post('/api/media/upload', formData);
+
+// Frontend — Step 2: save the ID to the model
+await axios.patch('/api/brand/1', { logo_id: data.id });
+
+// Backend — JSON response automatically contains URLs, not IDs
+return response()->json($brand->fresh());
+// { "logo_url": "https://yourapp.com/storage/media/uuid.webp" }  ✅
+```
+
+### Features
+
+- 🖼️ **Auto WebP conversion** — all images (jpg, png, bmp) converted and compressed on upload
+- 🔒 **Public & private storage** — permanent URLs for logos/avatars, signed expiring URLs for documents
+- 🔄 **Auto ID → URL in JSON** — `logo_id` disappears, `logo_url` appears automatically in every response
+- 📦 **Array support** — indexed and associative arrays of IDs both resolve to arrays of URLs
+- 🚦 **Built-in routes** — upload and serve routes registered with one `HasMedia::routes()` call
+- ⚙️ **Per-model quality** — override WebP compression quality per model
+- 📉 **Compression stats** — every upload response includes a `savings` percentage
+
+### Model Setup
+
+```php
+use App\Traits\HasMedia;
+
+class BrandConfig extends Model
+{
+    use HasMedia;
+
+    protected $fillable = ['name', 'logo_id', 'favicon_id', 'images_id', 'document_id'];
+
+    protected $casts = [
+        'images_id' => 'array', // required for array columns
+    ];
+
+    // 'public'  → permanent URL, browser cacheable (logos, avatars, product images)
+    // 'private' → signed URL, expires in 5 min (invoices, contracts, documents)
+    protected array $mediaColumns = [
+        'logo_id'     => 'public',
+        'favicon_id'  => 'public',
+        'images_id'   => 'public',   // works for arrays too
+        'document_id' => 'private',
+    ];
+
+    // Optional overrides
+    // protected int $mediaQuality = 90; // WebP quality 1–100 (default: 80)
+    // protected int $mediaExpiry  = 30; // private URL expiry in minutes (default: 5)
+}
+```
+
+### Register Routes
+
+```php
+// routes/api.php — registers both upload and serve routes
+\App\Traits\HasMedia::routes();
+```
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/api/media/upload` | Upload file — returns media record with ID and URL |
+| `GET` | `/api/media/{uuid}` | Serve file — streams public or validates signed private |
+
+### Upload
+
+```
+POST /api/media/upload
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+file = <file>           (required)
+disk = public|private   (optional, default: private)
+```
+
+```json
+{
+    "id":      1,
+    "uuid":    "abc-123-def-456",
+    "url":     "https://yourapp.com/storage/media/abc-123.webp",
+    "savings": "42%",
+    "size":    12345,
+    "name":    "photo.webp"
+}
+```
+
+### JSON Response Examples
+
+**Single file:**
+```json
+{ "id": 1, "name": "Acme Corp", "logo_url": "https://.../uuid.webp", "favicon_url": null }
+```
+
+**Indexed array:**
+```json
+{ "images_url": ["https://.../1.webp", "https://.../2.webp", "https://.../3.webp"] }
+```
+
+**Associative array:**
+```json
+{ "images_url": { "front": "https://.../1.webp", "back": "https://.../2.webp" } }
+```
+
+> `*_id` columns are **hidden automatically**. Only `*_url` is returned.
+
+### WebP Compression Reference
+
+| Quality | Size reduction | Recommended for |
+|---|---|---|
+| 90 | ~20% smaller | Brand logos, favicons |
+| **80** | **~40% smaller** | **Default — product images, avatars** |
+| 70 | ~55% smaller | Thumbnails, previews |
+
+### Install Dependency
+
+```bash
+composer require intervention/image
+php artisan storage:link
+```
+
+📄 [Full HasMedia Documentation →](docs/HasMedia.md)
+
+---
+
 ## ✅ Requirements
 
 | | |
@@ -215,6 +361,7 @@ Schedule::call(fn () => (new Currency)->sync())->dailyAt('00:00');
 | PHP | 8.1 or higher |
 | Laravel | 9, 10, or 11 |
 | Database | MySQL / MariaDB / PostgreSQL / SQLite |
+| `intervention/image` | Required only for `HasMedia` trait |
 
 ---
 
@@ -223,12 +370,16 @@ Schedule::call(fn () => (new Currency)->sync())->dailyAt('00:00');
 ```
 laravel-traits/
 ├── app/
+│   ├── Models/
+│   │   └── Media.php          ← required for HasMedia trait
 │   └── Traits/
 │       ├── QueryBuilder.php
-│       └── CurrencyHandler.php
+│       ├── CurrencyHandler.php
+│       └── HasMedia.php
 ├── docs/
 │   ├── QueryBuilder.md
-│   └── CurrencyHandler.md
+│   ├── CurrencyHandler.md
+│   └── HasMedia.md
 └── README.md
 ```
 
@@ -264,4 +415,4 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ## 🔖 Keywords
 
-`laravel` `laravel-traits` `eloquent` `query-builder` `laravel-filter` `laravel-search` `laravel-pagination` `laravel-sort` `currency` `exchange-rate` `laravel-currency` `php` `php8` `laravel9` `laravel10` `laravel11` `eloquent-traits` `laravel-package` `rest-api` `api-filter`
+`laravel` `laravel-traits` `eloquent` `query-builder` `laravel-filter` `laravel-search` `laravel-pagination` `laravel-sort` `currency` `exchange-rate` `laravel-currency` `laravel-media` `media-upload` `file-upload` `webp` `image-compression` `laravel-storage` `php` `php8` `laravel9` `laravel10` `laravel11` `eloquent-traits` `laravel-package` `rest-api` `api-filter`
