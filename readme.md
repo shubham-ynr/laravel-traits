@@ -1,13 +1,19 @@
 # 🛠️ Laravel Traits
 
-**A collection of plug-and-play Laravel Eloquent traits that supercharge your models with zero boilerplate.**
+> Plug-and-play Eloquent traits for Laravel — drop them into any model and get a full query API or automatic exchange-rate management with zero boilerplate.
 
 [![PHP](https://img.shields.io/badge/PHP-8.1%2B-blue?logo=php)](https://php.net)
 [![Laravel](https://img.shields.io/badge/Laravel-9%20|%2010%20|%2011-red?logo=laravel)](https://laravel.com)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/shubham-ynr/laravel-traits?style=social)](https://github.com/shubham-ynr/laravel-traits)
+[![Issues](https://img.shields.io/github/issues/shubham-ynr/laravel-traits)](https://github.com/shubham-ynr/laravel-traits/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/shubham-ynr/laravel-traits)](https://github.com/shubham-ynr/laravel-traits/commits/main)
 
 Stop writing the same controller logic over and over. These traits drop straight into your Eloquent models and give you production-ready features — search, filtering, sorting, pagination, currency management, exchange rates — all driven by HTTP query parameters or simple method calls.
+
+**Share this repo:**
+[![Share on Twitter](https://img.shields.io/badge/Share-Twitter-1DA1F2?logo=twitter&logoColor=white)](https://twitter.com/intent/tweet?text=Just%20found%20this%20awesome%20Laravel%20traits%20library%20-%20QueryBuilder%20%26%20CurrencyHandler%20for%20%40laravelphp%20%F0%9F%94%A5&url=https%3A%2F%2Fgithub.com%2Fshubham-ynr%2Flaravel-traits&hashtags=laravel,php,opensource)
+[![Share on LinkedIn](https://img.shields.io/badge/Share-LinkedIn-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fgithub.com%2Fshubham-ynr%2Flaravel-traits)
 
 ---
 
