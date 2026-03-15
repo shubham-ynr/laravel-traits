@@ -1,8 +1,6 @@
-# QueryBuilder Trait — v4
+# QueryBuilder
 
-A plug-and-play Eloquent trait that gives any Laravel model a full query API
-— search, filters, sorting, pagination, date ranges, eager loading, and soft delete
-control — all driven by HTTP query parameters with zero extra controller code.
+A single-file Laravel trait that gives any Eloquent model a full query API — search, filters, sorting, pagination, date ranges, eager loading, and soft-delete control — all driven by HTTP query parameters with zero extra controller code.
 
 ---
 
@@ -49,8 +47,7 @@ No service provider or config registration needed.
 
 ## Model Setup
 
-Add the trait to any Eloquent model and define four arrays that control what the
-query builder is allowed to touch.
+Add the trait to any Eloquent model and define four arrays that control what the query builder is allowed to touch.
 
 ```php
 <?php
@@ -129,13 +126,31 @@ class User extends Model
 
 ### Optional: Override defaults
 
-You can override the pagination and sorting defaults directly on your model.
+Override pagination and sorting defaults directly on your model.
 
 ```php
-protected int    $defaultPerPage  = 20;   // default: 15
-protected int    $maxPerPage      = 200;  // default: 100
-protected string $defaultSortBy   = 'created_at'; // default: 'id'
-protected string $defaultSortDir  = 'desc';        // default: 'asc'
+/**
+ * Default number of rows returned per page when ?per_page is absent.
+ * Must be lower than or equal to $maxPerPage.
+ */
+protected int $defaultPerPage = 20;  // default: 15
+
+/**
+ * Hard cap on rows per page regardless of what ?per_page requests.
+ */
+protected int $maxPerPage = 200;     // default: 100
+
+/**
+ * Default sort column when ?sort_by is absent.
+ * Leave unset to use automatic resolution — see Default Sort Resolution.
+ */
+protected string $defaultSortBy = 'created_at'; // default: auto-resolved
+
+/**
+ * Default sort direction when ?sort_dir is absent.
+ * Accepted values: 'asc' | 'desc'
+ */
+protected string $defaultSortDir = 'desc';       // default: 'asc'
 ```
 
 ---
@@ -150,15 +165,14 @@ protected string $defaultSortDir  = 'desc';        // default: 'asc'
 | `$allowedRelations` | `array` | `[]` | Relations allowed in `?with[]=` — **always define this** |
 | `$defaultPerPage` | `int` | `15` | Rows per page when `?per_page` is absent |
 | `$maxPerPage` | `int` | `100` | Hard cap on rows per page |
-| `$defaultSortBy` | `string` | auto | Default sort column — resolved automatically. See below |
+| `$defaultSortBy` | `string` | auto | Default sort column — resolved automatically if unset |
 | `$defaultSortDir` | `string` | `'asc'` | Sort direction when `?sort_dir` is absent |
 
 ---
 
 ## Default Sort Resolution
 
-When `?sort_by` is not provided and `$defaultSortBy` is not set on the model,
-the trait resolves the sort column automatically in this order:
+When `?sort_by` is not provided and `$defaultSortBy` is not set on the model, the trait resolves the sort column automatically in this order:
 
 | Priority | Condition | Column used |
 |---|---|---|
@@ -167,17 +181,17 @@ the trait resolves the sort column automatically in this order:
 | 3 | Composite PK or no PK — schema available | first column returned by the schema |
 | 4 | Schema query fails | `rowid` (SQLite fallback) |
 
-This means the trait works correctly out of the box for:
+This means the trait works correctly out of the box for all common primary key patterns:
 
 ```php
 // Standard auto-increment
-$table->id();                          // sorts by 'id'
+$table->id();                               // sorts by 'id'
 
 // Custom string primary key
-$table->string('code')->primary();     // sorts by 'code'
+$table->string('code')->primary();          // sorts by 'code'
 
 // UUID primary key
-$table->uuid('uuid')->primary();       // sorts by 'uuid'
+$table->uuid('uuid')->primary();            // sorts by 'uuid'
 
 // Composite primary key — sorts by first column in the table
 $table->primary(['order_id', 'product_id']); // sorts by 'order_id'
@@ -186,7 +200,10 @@ $table->primary(['order_id', 'product_id']); // sorts by 'order_id'
 To override the automatic resolution, define `$defaultSortBy` on your model:
 
 ```php
-protected string $defaultSortBy = 'name'; // always sort by name
+/**
+ * Always sort by name regardless of primary key resolution.
+ */
+protected string $defaultSortBy = 'name';
 ```
 
 ---
@@ -204,8 +221,7 @@ public function index(Request $request)
 
 ### Chain your own scopes after QueryBuild
 
-`QueryBuild()` returns a standard Eloquent `Builder`. You can chain any scope,
-condition, or method on it freely.
+`QueryBuild()` returns a standard Eloquent `Builder`. You can chain any scope, condition, or method on it freely.
 
 ```php
 // Add your own scope
@@ -235,7 +251,7 @@ public function index(Request $request)
     return User::QueryBuild($request)->paginateTable($request);
 }
 
-// With additional scopes
+// With additional scopes chained before paginating
 public function index(Request $request)
 {
     return User::QueryBuild($request)
@@ -249,8 +265,7 @@ public function index(Request $request)
 
 ## HTTP Query Parameters
 
-All parameters are optional. Omitting any of them applies the model's configured
-default for that feature.
+All parameters are optional. Omitting any of them applies the model's configured default for that feature.
 
 ---
 
@@ -277,36 +292,40 @@ Minimum term length is **3 characters** — shorter terms are ignored.
 ### Sorting
 
 Single column:
+
 ```
 ?sort_by=name
 ?sort_by=name&sort_dir=desc
 ```
 
 Multi-column — comma-separated, directions matched by position:
+
 ```
 ?sort_by=name,created_at
 ?sort_by=name,created_at&sort_dir=asc,desc
 ```
 
 Relation column (1-level only):
+
 ```
 ?sort_by=profile.city
 ?sort_by=profile.city&sort_dir=asc
 ```
 
-> Paths deeper than one level (e.g. `roles.permissions.name`) are silently skipped
-> for sorting. They are fully supported for search and filtering.
+> Paths deeper than one level (e.g. `roles.permissions.name`) are silently skipped for sorting. They are fully supported for search and filtering.
 
 ---
 
 ### Filters — Own Columns
 
 **Shorthand** — operator defaults to `=`:
+
 ```
 ?filters[status]=active
 ```
 
 **With explicit operator:**
+
 ```
 ?filters[name][operator]=like&filters[name][value]=john
 ?filters[age][operator]=between&filters[age][value]=18,30
@@ -331,7 +350,7 @@ Use dot-notation as the filter key. Any depth is supported.
 
 ---
 
-### Filter Operators
+## Filter Operators
 
 | Operator | Behaviour |
 |---|---|
@@ -353,8 +372,7 @@ Use dot-notation as the filter key. Any depth is supported.
 ### Date Range
 
 Applies a date range to any date/datetime column.
-Full-day precision is used — `date_from` starts at `00:00:00` and `date_to` ends at `23:59:59`,
-so DATETIME and TIMESTAMP columns include the entire last day of the range.
+Full-day precision is used — `date_from` starts at `00:00:00` and `date_to` ends at `23:59:59`, so DATETIME and TIMESTAMP columns include the entire last day of the range.
 
 ```
 ?date_from=2024-01-01
@@ -370,15 +388,13 @@ so DATETIME and TIMESTAMP columns include the entire last day of the range.
 
 ### Column Selection
 
-Return only specific columns. The primary key is always included automatically
-to ensure sorting and pagination function correctly.
+Return only specific columns. The primary key is always included automatically to ensure sorting and pagination function correctly.
 
 ```
 ?columns=id,name,email,status
 ```
 
-Only columns that exist on the model's own table are accepted.
-Relation columns cannot be selected this way.
+Only columns that exist on the model's own table are accepted. Relation columns cannot be selected this way.
 
 ---
 
@@ -405,6 +421,7 @@ Load relations alongside the results. Only relations listed in `$allowedRelation
 ```
 
 Multiple relations:
+
 ```
 ?with[]=posts&with[]=roles&with[]=profile
 ```
@@ -458,15 +475,13 @@ Multiple relations:
 }
 ```
 
-`applied_sorts` contains only the sort fields that were **actually applied** to the
-query. Invalid or whitelisted-out columns do not appear here.
+`applied_sorts` contains only the sort fields that were **actually applied** to the query. Invalid or whitelisted-out columns do not appear here.
 
 ---
 
 ## Overridable Constants
 
-These constants control internal safety limits. Override them per-model in PHP 8.1+
-by redeclaring the constant as `private const` in your model.
+These constants control internal safety limits. Override them per-model in PHP 8.1+ by redeclaring the constant as `private const` in your model.
 
 | Constant | Default | Purpose |
 |---|---|---|
@@ -479,10 +494,16 @@ class User extends Model
 {
     use QueryBuilder;
 
-    // Allow 2-character searches on this model
+    /**
+     * Allow 2-character searches on this model.
+     * Default: 3
+     */
     private const QB_MIN_SEARCH_LENGTH = 2;
 
-    // Stricter eager-load depth
+    /**
+     * Restrict eager-load depth to 2 levels on this model.
+     * Default: 3
+     */
     private const QB_MAX_RELATION_DEPTH = 2;
 }
 ```
@@ -506,8 +527,7 @@ class User extends Model
 ## Performance Tips
 
 **Index your filtered columns.**
-Any column used in `$filterable` that receives frequent requests should have a
-database index. Unindexed filters cause full table scans.
+Any column used in `$filterable` that receives frequent requests should have a database index. Unindexed filters cause full table scans.
 
 ```php
 // In your migration
@@ -516,31 +536,25 @@ $table->index('created_at');
 ```
 
 **Keep `$searchable` small.**
-Global search fires a `LIKE %term%` against every listed column. Each relation
-column adds a nested `EXISTS` subquery. On large tables, limit this list to the
-most important 2–3 columns.
+Global search fires a `LIKE %term%` against every listed column. Each relation column adds a nested `EXISTS` subquery. On large tables, limit this list to the most important 2–3 columns.
 
 **Index relation foreign keys for relation sorting.**
 Relation sorts use correlated subqueries. They depend on the foreign key being indexed.
 
 ```php
-// profiles.user_id, posts.user_id, role_user.user_id etc.
+// profiles.user_id, posts.user_id, role_user.user_id, etc.
 $table->index('user_id');
 ```
 
 **Always define `$allowedRelations`.**
-An empty array removes all restrictions on eager loading. A client could request
-a deeply nested relation graph and cause a cascade of queries.
+An empty array removes all restrictions on eager loading. A client could request a deeply nested relation graph and cause a cascade of queries.
 
 **Consider cursor pagination for very large datasets.**
-Standard offset pagination (`?page=10000`) forces the database to scan all
-preceding rows. For tables with millions of rows, switch to cursor pagination:
+Standard offset pagination (`?page=10000`) forces the database to scan all preceding rows. For tables with millions of rows, switch to cursor pagination:
 
 ```php
 User::QueryBuild($request)->cursorPaginate(15);
 ```
 
 **Consider a search engine for large-scale text search.**
-If your table has 100k+ rows and you need fast full-text search, offload search
-to Meilisearch, Algolia, or Typesense rather than relying on `$searchable`.
-Laravel Scout integrates with all three.
+If your table has 100k+ rows and you need fast full-text search, offload search to Meilisearch, Algolia, or Typesense rather than relying on `$searchable`. Laravel Scout integrates with all three.

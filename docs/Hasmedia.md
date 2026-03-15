@@ -1,28 +1,31 @@
-# HasMedia Trait
+# HasMedia
 
-Complete media handling for Laravel API — upload, compress, WebP conversion, public/private storage, and automatic URL resolution in JSON responses.
+A single-file Laravel trait that gives any Eloquent model complete media handling — upload, compress, WebP conversion, public/private storage, and automatic URL resolution in JSON responses.
 
 ---
 
-## How It Works
+## Table of Contents
 
-```
-POST /api/media/upload  →  { "id": 1 }
-         ↓
-Save  logo_id = 1  on your model
-         ↓
-GET  /api/brand/1  →  { "logo_url": "https://..." }
-```
-
-- Upload returns a **media ID**
-- You store that ID in any column (`logo_id`, `favicon_id`, `images_id`)
-- Trait automatically replaces `*_id` with `*_url` in every JSON response
-- Images are compressed and converted to **WebP** on upload
-- Public files → permanent URL | Private files → signed URL with expiry
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Model Setup](#model-setup)
+- [Configuration Reference](#configuration-reference)
+- [How It Works](#how-it-works)
+- [Public API](#public-api)
+- [Public vs Private](#public-vs-private)
+- [WebP Compression](#webp-compression)
+- [File Serving](#file-serving)
+- [Examples](#examples)
 
 ---
 
 ## Requirements
+
+| | |
+|---|---|
+| PHP | 8.1 or higher |
+| Laravel | 10 or higher |
+| Composer package | `intervention/image` |
 
 ```bash
 composer require intervention/image
@@ -31,9 +34,9 @@ php artisan storage:link
 
 ---
 
-## Setup
+## Installation
 
-### 1. Add private disk — `config/filesystems.php`
+### 1 — Add private disk — `config/filesystems.php`
 
 ```php
 'disks' => [
@@ -49,23 +52,20 @@ php artisan storage:link
 ],
 ```
 
----
-
-### 2. Register routes — `routes/api.php`
+### 2 — Register routes — `routes/api.php`
 
 ```php
 \App\Traits\HasMedia::routes();
 ```
 
 This registers two routes automatically:
+
 | Method | Route | Description |
 |--------|-------|-------------|
 | `POST` | `/api/media/upload` | Upload a file, returns media record |
-| `GET` | `/api/media/{uuid}` | Serve a file (public or private) |
+| `GET`  | `/api/media/{uuid}` | Serve a file (public or private) |
 
----
-
-### 3. Media table migration
+### 3 — Create the migration
 
 ```php
 Schema::create('media', function (Blueprint $table) {
@@ -85,9 +85,7 @@ Schema::create('media', function (Blueprint $table) {
 });
 ```
 
----
-
-### 4. Media model — `app/Models/Media.php`
+### 4 — Create the Media model — `app/Models/Media.php`
 
 ```php
 <?php
@@ -120,23 +118,23 @@ class Media extends Model
 }
 ```
 
----
-
-### 5. Add media columns to your model's migration
+### 5 — Add media columns to your model's migration
 
 ```php
-// Single file — stores one media ID
+// Single file — stores one media ID per column
 $table->foreignId('logo_id')->nullable()->constrained('media')->nullOnDelete();
 $table->foreignId('favicon_id')->nullable()->constrained('media')->nullOnDelete();
 $table->foreignId('document_id')->nullable()->constrained('media')->nullOnDelete();
 
-// Multiple files — stores JSON array of IDs
+// Multiple files — stores a JSON array of IDs
 $table->json('images_id')->nullable();
 ```
 
 ---
 
-## Add Trait to Your Model
+## Model Setup
+
+Add the trait to any Eloquent model and define `$mediaColumns` to control which columns hold media IDs and how their URLs are resolved.
 
 ```php
 <?php
@@ -156,31 +154,71 @@ class BrandConfig extends Model
         'logo_id',
         'favicon_id',
         'images_id',
+        'document_id',
     ];
 
     protected $casts = [
-        'images_id' => 'array', // required for every array column
+        'images_id' => 'array', // required for every JSON / array column
     ];
 
-    // Define which columns hold media IDs
-    // 'public'  → permanent URL, no expiry, browser cacheable (1 year)
-    // 'private' → signed URL, expires (default: 5 min)
+    /**
+     * Map each media column to its visibility setting.
+     *
+     * 'public'  → permanent URL, no expiry, browser-cacheable for 1 year.
+     * 'private' → signed URL with short expiry (default: 5 minutes).
+     */
     protected array $mediaColumns = [
-        'logo_id'    => 'public',
-        'favicon_id' => 'public',
-        'images_id'  => 'public',    // works for arrays too
-        'document_id'=> 'private',
+        'logo_id'     => 'public',
+        'favicon_id'  => 'public',
+        'images_id'   => 'public',   // works for array columns too
+        'document_id' => 'private',
     ];
 
-    // Optional overrides
-    // protected int $mediaQuality = 90; // WebP quality 1-100 (default: 80)
-    // protected int $mediaExpiry  = 30; // private URL expiry minutes (default: 5)
+    /**
+     * Override WebP compression quality for this model only.
+     * Accepted range: 1–100. Default: 80.
+     */
+    // protected int $mediaQuality = 90;
+
+    /**
+     * Override the signed URL expiry for private files on this model.
+     * Value is in minutes. Default: 5.
+     */
+    // protected int $mediaExpiry = 30;
 }
 ```
 
 ---
 
-## Usage
+## Configuration Reference
+
+| Property | Type | Default | Purpose |
+|---|---|---|---|
+| `$mediaColumns` | `array` | `[]` | Maps column names to `'public'` or `'private'` visibility |
+| `$mediaQuality` | `int` | `80` | WebP compression quality (1–100) |
+| `$mediaExpiry` | `int` | `5` | Signed URL expiry in minutes for private files |
+
+---
+
+## How It Works
+
+```
+POST /api/media/upload  →  { "id": 1 }
+         ↓
+Save  logo_id = 1  on your model
+         ↓
+GET  /api/brand/1  →  { "logo_url": "https://..." }
+```
+
+- Upload returns a **media ID**.
+- You store that ID in any column (`logo_id`, `favicon_id`, `images_id`).
+- The trait automatically replaces `*_id` with `*_url` in every JSON response.
+- Images are compressed and converted to **WebP** on upload.
+- Public files → permanent URL | Private files → signed URL with expiry.
+
+---
+
+## Public API
 
 ### Upload a file
 
@@ -195,6 +233,7 @@ Body:
 ```
 
 **Response:**
+
 ```json
 {
     "id":      1,
@@ -207,9 +246,7 @@ Body:
 ```
 
 > All images (jpg, png, bmp, webp) are automatically converted to **WebP** and compressed.
-> Non-images (pdf, doc, etc.) are stored as-is.
-
----
+> Non-images (pdf, doc, etc.) are stored as-is without modification.
 
 ### Save the ID to your model
 
@@ -217,12 +254,12 @@ Body:
 // Single file
 $brand->update(['logo_id' => 1]);
 
-// Indexed array
+// Indexed array — IDs become an ordered array of URLs
 $product->update([
     'images_id' => [1, 2, 3, 4],
 ]);
 
-// Associative array — keys are preserved in response
+// Associative array — keys are preserved in the response
 $product->update([
     'images_id' => [
         'front' => 1,
@@ -232,8 +269,6 @@ $product->update([
 ]);
 ```
 
----
-
 ### Fetch model — IDs automatically become URLs
 
 ```php
@@ -241,6 +276,7 @@ return response()->json($brand->fresh());
 ```
 
 **Single ID:**
+
 ```json
 {
     "id": 1,
@@ -251,6 +287,7 @@ return response()->json($brand->fresh());
 ```
 
 **Indexed array:**
+
 ```json
 {
     "id": 1,
@@ -264,6 +301,7 @@ return response()->json($brand->fresh());
 ```
 
 **Associative array:**
+
 ```json
 {
     "id": 1,
@@ -277,8 +315,6 @@ return response()->json($brand->fresh());
 ```
 
 > `*_id` columns are **hidden automatically**. Only `*_url` is returned.
-
----
 
 ### Direct property access
 
@@ -302,24 +338,9 @@ $product->images_url; // array of URLs
 
 ---
 
-## File Serving
-
-Handled automatically by `HasMedia::routes()`. No controller needed.
-
-```
-GET /api/media/{uuid}
-```
-
-- **Public** → streams file, permanent, browser cacheable
-- **Private** → validates signed URL, streams file, no cache
-  - `403` if URL is tampered or expired
-  - `404` if file not found on disk
-
----
-
 ## WebP Compression
 
-All images are converted to WebP on upload. No resizing — quality compression only.
+All images are converted to WebP on upload. Only quality compression is applied — no resizing.
 
 | Quality | Size reduction | Visual difference |
 |---------|---------------|------------------|
@@ -329,53 +350,72 @@ All images are converted to WebP on upload. No resizing — quality compression 
 | 60 | ~65% smaller | Noticeable |
 
 Override per model:
+
 ```php
-protected int $mediaQuality = 90; // higher quality for brand logos
+/**
+ * Override WebP compression quality for this model only.
+ * Use a higher value for brand assets where quality is critical.
+ */
+protected int $mediaQuality = 90;
 ```
 
 ---
 
-## Example Upload Route
+## File Serving
+
+Handled automatically by `HasMedia::routes()`. No controller needed.
+
+```
+GET /api/media/{uuid}
+```
+
+- **Public** → streams file directly, permanent, browser-cacheable.
+- **Private** → validates signed URL, streams file, no cache headers.
+  - Returns `403` if the URL is tampered with or expired.
+  - Returns `404` if the file is not found on disk.
+
+---
+
+## Examples
+
+### Upload and attach a logo in one route
 
 ```php
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Upload logo and save to brand
     Route::post('/brand/{brand}/logo', function (Request $request, BrandConfig $brand) {
         $request->validate([
             'logo' => ['required', 'image', 'max:10240'],
         ]);
 
-        // Step 1 — upload file
-        // In real usage, frontend uploads separately and sends the ID
-        // This is just an example of doing it in one step
+        // Step 1 — upload the file via the media endpoint
         $media = \App\Models\Media::find(
             json_decode(app()->handle(
                 \Illuminate\Http\Request::create('/api/media/upload', 'POST', [], [], ['file' => $request->file('logo')])
             )->getContent())->id
         );
 
-        // Step 2 — save ID to model
+        // Step 2 — save the media ID to the model
         $brand->update(['logo_id' => $media->id]);
 
+        // logo_url is resolved automatically in the JSON response
         return response()->json($brand->fresh());
-        // { "logo_url": "https://..." } ✅
     });
 
 });
 ```
 
-**Recommended approach — two separate calls from frontend:**
+### Recommended approach — two separate calls from the frontend
 
 ```js
-// Step 1 — upload file
+// Step 1 — upload the file to the media endpoint
 const { data } = await axios.post('/api/media/upload', formData);
 const mediaId = data.id; // e.g. 5
 
-// Step 2 — save ID to model
+// Step 2 — save the media ID to the model
 await axios.patch('/api/brand/1', { logo_id: mediaId });
 
-// Step 3 — fetch model, get URL
+// Step 3 — fetch the model; *_id is replaced with *_url automatically
 const brand = await axios.get('/api/brand/1');
 console.log(brand.data.logo_url); // "https://..."
 ```
@@ -387,9 +427,9 @@ console.log(brand.data.logo_url); // "https://..."
 ```
 app/
 ├── Models/
-│   └── Media.php          ← media model
-├── Traits/
-│   └── HasMedia.php        ← the trait (all logic lives here)
+│   └── Media.php      ← media model
+└── Traits/
+    └── HasMedia.php   ← the trait (all logic lives here)
 ```
 
-That's it. No controllers, no services, no extra files.
+No controllers, no services, no extra files.

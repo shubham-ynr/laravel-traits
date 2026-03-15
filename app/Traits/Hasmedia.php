@@ -253,7 +253,7 @@ trait HasMedia
     }
 
     // ──────────────────────────────────────────────────
-    // Dynamic accessor — logo_url, favicon_url etc.
+    // Dynamic Accessor — logo_url, favicon_url etc.
     // Called automatically when model is serialized
     // ──────────────────────────────────────────────────
 

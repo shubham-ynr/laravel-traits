@@ -8,41 +8,55 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Trait CurrencyHandler
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║                     CurrencyHandler Trait                       ║
+ * ║             Multi-Provider Exchange Rate Handler                ║
+ * ╚══════════════════════════════════════════════════════════════════╝
  *
- * ── Column expectations ──────────────────────────────────────────────────────
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ COLUMN EXPECTATIONS                                              │
+ * └──────────────────────────────────────────────────────────────────┘
+ *
  *   code     string   ISO 4217 e.g. "USD"
  *   rate     decimal  Exchange rate relative to the default currency
  *   default  boolean  true = system base currency
  *   symbol   string   nullable
  *   name     string   nullable
  *
- * ── .env ─────────────────────────────────────────────────────────────────────
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ .ENV                                                             │
+ * └──────────────────────────────────────────────────────────────────┘
+ *
  *   CURRENCY_API_KEY=your_key
  *   CURRENCY_API_URL=https://v6.exchangerate-api.com/v6
  *   CURRENCY_API_PROVIDER=exchangerate-api   # fixer | openexchange
  *   CURRENCY_CACHE_TTL=3600
  *   CURRENCY_API_RETRIES=3
  *
- * ── Supported providers ──────────────────────────────────────────────────────
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ SUPPORTED PROVIDERS                                              │
+ * └──────────────────────────────────────────────────────────────────┘
+ *
  *   exchangerate-api → https://v6.exchangerate-api.com/v6/{key}/latest/{base}
  *   fixer            → http://data.fixer.io/api/latest?access_key={key}&base={base}
  *   openexchange     → https://openexchangerates.org/api/latest.json?app_id={key}
  *
- * ── Recommended migration extra ──────────────────────────────────────────────
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ RECOMMENDED MIGRATION EXTRA                                      │
+ * └──────────────────────────────────────────────────────────────────┘
+ *
  *   // Enforce a single default at DB level (MySQL 8+ / PostgreSQL)
  *   DB::statement("CREATE UNIQUE INDEX one_default ON currencies ((1)) WHERE `default` = 1");
- * ─────────────────────────────────────────────────────────────────────────────
  */
 trait CurrencyHandler
 {
-    // -------------------------------------------------------------------------
-    // BOOT  –  Eloquent event hooks (no separate Observer class needed)
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Boot — Eloquent event hooks (no separate Observer class needed)
+    // ──────────────────────────────────────────────────
 
     protected static function bootCurrencyHandler(): void
     {
-        // ── CREATING ──────────────────────────────────────────────────────────
+        // ── Creating ─────────────────────────────────────────────────────────
         static::creating(function ($currency) {
             $code = strtoupper($currency->code);
 
@@ -63,7 +77,7 @@ trait CurrencyHandler
             $currency->rate = static::resolveRate($code) ?? 0.0;
         });
 
-        // ── UPDATING ──────────────────────────────────────────────────────────
+        // ── Updating ─────────────────────────────────────────────────────────
         static::updating(function ($currency) {
             $code       = strtoupper($currency->code);
             $isDefault  = (bool) $currency->{'default'};
@@ -104,11 +118,11 @@ trait CurrencyHandler
             }
         });
 
-        // ── CREATED / UPDATED ─────────────────────────────────────────────────
+        // ── Created / Updated ────────────────────────────────────────────────
         static::created(fn ($currency) => $currency->clearCache());
         static::updated(fn ($currency) => $currency->clearCache());
 
-        // ── DELETING ──────────────────────────────────────────────────────────
+        // ── Deleting ─────────────────────────────────────────────────────────
         static::deleting(function ($currency) {
             if ($currency->{'default'}) {
                 throw new \LogicException(
@@ -120,9 +134,9 @@ trait CurrencyHandler
         static::deleted(fn ($currency) => $currency->clearCache());
     }
 
-    // -------------------------------------------------------------------------
-    // RATE RESOLUTION  –  shared by creating + updating hooks
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Rate Resolution — shared by creating + updating hooks
+    // ──────────────────────────────────────────────────
 
     /**
      * Attempt to fetch a live rate from the API with retry logic.
@@ -163,9 +177,9 @@ trait CurrencyHandler
         return null;
     }
 
-    // -------------------------------------------------------------------------
-    // FETCH  –  single rate
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Fetch — single rate
+    // ──────────────────────────────────────────────────
 
     /**
      * Get the exchange rate for $code vs the base currency.
@@ -226,9 +240,9 @@ trait CurrencyHandler
         });
     }
 
-    // -------------------------------------------------------------------------
-    // SYNC  –  refresh every stored currency's rate from the API
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Sync — refresh every stored currency's rate from the API
+    // ──────────────────────────────────────────────────
 
     /**
      * Pull fresh rates from the API and update every stored currency.
@@ -282,9 +296,9 @@ trait CurrencyHandler
         return $stats;
     }
 
-    // -------------------------------------------------------------------------
-    // DEFAULT TO  –  change the default (base) currency
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Default To — change the default (base) currency
+    // ──────────────────────────────────────────────────
 
     /**
      * Atomically swap the default currency, recalculate all stored rates,
@@ -342,9 +356,9 @@ trait CurrencyHandler
         return true;
     }
 
-    // -------------------------------------------------------------------------
-    // CONVERT & FORMAT
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Convert & Format
+    // ──────────────────────────────────────────────────
 
     /**
      * Convert an amount between two currencies using stored rates.
@@ -389,9 +403,9 @@ trait CurrencyHandler
         return $symbol . number_format($amount, 2);
     }
 
-    // -------------------------------------------------------------------------
-    // CACHE
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Cache
+    // ──────────────────────────────────────────────────
 
     /**
      * Clear cached rates for a specific base, or all bases when null.
@@ -413,9 +427,9 @@ trait CurrencyHandler
         }
     }
 
-    // -------------------------------------------------------------------------
-    // PRICE HOOK  –  override in your model
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Price Hook — override in your model
+    // ──────────────────────────────────────────────────
 
     /**
      * Called after defaultTo() when $recalcPrices is true.
@@ -438,9 +452,9 @@ trait CurrencyHandler
         // Stub — override to implement your price cascade logic.
     }
 
-    // -------------------------------------------------------------------------
-    // INTERNALS
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Internals
+    // ──────────────────────────────────────────────────
 
     protected static function atomicPromote(mixed $currency): void
     {
@@ -479,9 +493,9 @@ trait CurrencyHandler
         return static::class;
     }
 
-    // -------------------------------------------------------------------------
-    // PROVIDER ADAPTERS
-    // -------------------------------------------------------------------------
+    // ──────────────────────────────────────────────────
+    // Provider Adapters
+    // ──────────────────────────────────────────────────
 
     /** @throws \RuntimeException */
     private function callExchangeRateApi(string $key, string $url, string $base): array

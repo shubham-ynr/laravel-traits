@@ -13,26 +13,26 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║                      QueryBuilder  Trait  v4                            ║
- * ╠══════════════════════════════════════════════════════════════════════════╣
- * ║                                                                          ║
- * ║  Add to any Eloquent model for instant API-ready query building:        ║
- * ║                                                                          ║
- * ║   ✦ Global search       — own columns + deep nested relation columns   ║
- * ║   ✦ Per-column filters  — 12 operators (=, like, in, between, null…)  ║
- * ║   ✦ Relation filters    — ?filters[roles.name]=admin  (any depth)     ║
- * ║   ✦ Multi-column sort   — own columns + 1-level relation sort          ║
- * ║   ✦ Pagination          — page / per_page, structured JSON response    ║
- * ║   ✦ Date range          — ?date_from / ?date_to / ?date_column         ║
- * ║   ✦ Column selection    — ?columns=id,name,email                       ║
- * ║   ✦ Eager loading       — ?with[]=posts&with[]=roles.permissions       ║
- * ║   ✦ Soft delete control — ?trashed=with | only                         ║
- * ╚══════════════════════════════════════════════════════════════════════════╝
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║                     QueryBuilder Trait v4                       ║
+ * ║         API-Ready Eloquent Query Building for Laravel           ║
+ * ╚══════════════════════════════════════════════════════════════════╝
  *
- * ══════════════════════════════════════════════════════════════════════════
- *  STEP 1 — MODEL SETUP
- * ══════════════════════════════════════════════════════════════════════════
+ *   Add to any Eloquent model for instant API-ready query building:
+ *
+ *   ✦ Global search       — own columns + deep nested relation columns
+ *   ✦ Per-column filters  — 12 operators (=, like, in, between, null…)
+ *   ✦ Relation filters    — ?filters[roles.name]=admin  (any depth)
+ *   ✦ Multi-column sort   — own columns + 1-level relation sort
+ *   ✦ Pagination          — page / per_page, structured JSON response
+ *   ✦ Date range          — ?date_from / ?date_to / ?date_column
+ *   ✦ Column selection    — ?columns=id,name,email
+ *   ✦ Eager loading       — ?with[]=posts&with[]=roles.permissions
+ *   ✦ Soft delete control — ?trashed=with | only
+ *
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ STEP 1 — MODEL SETUP                                             │
+ * └──────────────────────────────────────────────────────────────────┘
  *
  *   use App\Traits\QueryBuilder;
  *
@@ -75,9 +75,9 @@ use Illuminate\Support\Facades\Schema;
  *       ];
  *   }
  *
- * ══════════════════════════════════════════════════════════════════════════
- *  STEP 2 — CONTROLLER USAGE
- * ══════════════════════════════════════════════════════════════════════════
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ STEP 2 — CONTROLLER USAGE                                        │
+ * └──────────────────────────────────────────────────────────────────┘
  *
  *   // Returns a fully configured Eloquent Builder — chain anything after it
  *   User::QueryBuild($request)->get();
@@ -91,9 +91,9 @@ use Illuminate\Support\Facades\Schema;
  *   return User::QueryBuild($request)->paginateTable($request);
  *   return User::QueryBuild($request)->active()->paginateTable($request);
  *
- * ══════════════════════════════════════════════════════════════════════════
- *  STEP 3 — HTTP QUERY PARAMETERS
- * ══════════════════════════════════════════════════════════════════════════
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ STEP 3 — HTTP QUERY PARAMETERS                                   │
+ * └──────────────────────────────────────────────────────────────────┘
  *
  *   PAGINATION
  *     ?page=2
@@ -143,9 +143,9 @@ use Illuminate\Support\Facades\Schema;
  *     ?with[]=posts
  *     ?with[]=roles.permissions
  *
- * ══════════════════════════════════════════════════════════════════════════
- *  PAGINATETABLE RESPONSE SHAPE
- * ══════════════════════════════════════════════════════════════════════════
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ PAGINATETABLE RESPONSE SHAPE                                     │
+ * └──────────────────────────────────────────────────────────────────┘
  *
  *   {
  *     "data": [...],
@@ -161,9 +161,9 @@ use Illuminate\Support\Facades\Schema;
  *     }
  *   }
  *
- * ══════════════════════════════════════════════════════════════════════════
- *  KNOWN LIMITATIONS
- * ══════════════════════════════════════════════════════════════════════════
+ * ┌──────────────────────────────────────────────────────────────────┐
+ * │ KNOWN LIMITATIONS                                                │
+ * └──────────────────────────────────────────────────────────────────┘
  *
  *   • Relation sorting — 1-level depth only (profile.city ✓, roles.permissions.name ✗)
  *   • Global search — LIKE %term% cannot use B-tree indexes
@@ -174,24 +174,24 @@ use Illuminate\Support\Facades\Schema;
  */
 trait QueryBuilder
 {
-    // =========================================================================
-    //  MODEL CONFIGURATION — GETTER METHODS
+    // ──────────────────────────────────────────────────
+    // Model Configuration — getter methods
     //
-    //  The trait declares NO properties to avoid PHP 8.4 fatal errors when
-    //  the using model already defines a property with a different type hint
-    //  (e.g. Laravel Scout declares $searchable without a type hint).
+    // The trait declares NO properties to avoid PHP 8.4 fatal errors when
+    // the using model already defines a property with a different type hint
+    // (e.g. Laravel Scout declares $searchable without a type hint).
     //
-    //  To customise behaviour, define the matching property on your model:
+    // To customise behaviour, define the matching property on your model:
     //
-    //      protected array  $searchable       = ['name', 'email'];
-    //      protected array  $sortable          = ['id', 'name', 'created_at'];
-    //      protected array  $filterable        = ['status', 'role'];
-    //      protected array  $allowedRelations  = ['posts', 'roles'];
-    //      protected int    $defaultPerPage    = 20;
-    //      protected int    $maxPerPage        = 200;
-    //      protected string $defaultSortBy     = 'created_at';
-    //      protected string $defaultSortDir    = 'desc';
-    // =========================================================================
+    //     protected array  $searchable       = ['name', 'email'];
+    //     protected array  $sortable          = ['id', 'name', 'created_at'];
+    //     protected array  $filterable        = ['status', 'role'];
+    //     protected array  $allowedRelations  = ['posts', 'roles'];
+    //     protected int    $defaultPerPage    = 20;
+    //     protected int    $maxPerPage        = 200;
+    //     protected string $defaultSortBy     = 'created_at';
+    //     protected string $defaultSortDir    = 'desc';
+    // ──────────────────────────────────────────────────
 
     /** Columns to include in ?search= — read from model property or default to [] */
     private function qbSearchable(): array
@@ -296,9 +296,9 @@ trait QueryBuilder
      */
     private static array $qbSortsRegistry = [];
 
-    // =========================================================================
-    //  ENTRY POINT
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Entry Point
+    // ──────────────────────────────────────────────────
 
     /**
      * Build a fully-configured Eloquent Builder from the incoming request.
@@ -332,9 +332,9 @@ trait QueryBuilder
         return $query;
     }
 
-    // =========================================================================
-    //  PAGINATION
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Pagination
+    // ──────────────────────────────────────────────────
 
     /**
      * Standard Laravel LengthAwarePaginator.
@@ -398,13 +398,13 @@ trait QueryBuilder
         ];
     }
 
-    // =========================================================================
-    //  COLUMN SELECTION
-    //  Restricts the SELECT list to the columns requested via ?columns=
-    //  Validates against real table columns to prevent SQL errors.
-    //  Always injects the primary key so sorting and pagination never break.
-    //  Prefixes each column with the table name to prevent JOIN ambiguity.
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Column Selection
+    // Restricts the SELECT list to the columns requested via ?columns=
+    // Validates against real table columns to prevent SQL errors.
+    // Always injects the primary key so sorting and pagination never break.
+    // Prefixes each column with the table name to prevent JOIN ambiguity.
+    // ──────────────────────────────────────────────────
 
     private function qbApplyColumnSelection(Builder $query, array $p): Builder
     {
@@ -433,15 +433,15 @@ trait QueryBuilder
         return $query;
     }
 
-    // =========================================================================
-    //  SOFT DELETES
-    //  Exposes ?trashed= to control soft-deleted row visibility.
-    //  Only activates when the model uses the SoftDeletes trait.
-    //  Without the parameter, Eloquent's default behaviour is preserved.
+    // ──────────────────────────────────────────────────
+    // Soft Deletes
+    // Exposes ?trashed= to control soft-deleted row visibility.
+    // Only activates when the model uses the SoftDeletes trait.
+    // Without the parameter, Eloquent's default behaviour is preserved.
     //
-    //  ?trashed=with  → withTrashed()   include soft-deleted rows
-    //  ?trashed=only  → onlyTrashed()   return only soft-deleted rows
-    // =========================================================================
+    // ?trashed=with  → withTrashed()   include soft-deleted rows
+    // ?trashed=only  → onlyTrashed()   return only soft-deleted rows
+    // ──────────────────────────────────────────────────
 
     private function qbApplySoftDeletes(Builder $query, array $p): Builder
     {
@@ -456,15 +456,15 @@ trait QueryBuilder
         };
     }
 
-    // =========================================================================
-    //  GLOBAL SEARCH
-    //  Searches across all $searchable columns using LIKE %term%.
-    //  Own columns are table-qualified to prevent JOIN ambiguity.
-    //  Relation columns (dot-notation) are resolved via nested whereHas chains.
-    //  All conditions are wrapped in a single OR group so they do not interfere
-    //  with any WHERE clauses added before or after QueryBuild().
-    //  Terms shorter than QB_MIN_SEARCH_LENGTH are silently skipped.
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Global Search
+    // Searches across all $searchable columns using LIKE %term%.
+    // Own columns are table-qualified to prevent JOIN ambiguity.
+    // Relation columns (dot-notation) are resolved via nested whereHas chains.
+    // All conditions are wrapped in a single OR group so they do not interfere
+    // with any WHERE clauses added before or after QueryBuild().
+    // Terms shorter than QB_MIN_SEARCH_LENGTH are silently skipped.
+    // ──────────────────────────────────────────────────
 
     private function qbApplySearch(Builder $query, array $p): Builder
     {
@@ -497,15 +497,15 @@ trait QueryBuilder
         return $query;
     }
 
-    // =========================================================================
-    //  FILTERS
-    //  Applies per-column filter conditions from ?filters[col][operator]=&value=
-    //  Supports own columns and relation columns via dot-notation (any depth).
-    //  Relation filters are applied via nested whereHas chains.
-    //  Own column filters are table-qualified to prevent JOIN ambiguity.
-    //  Excess filter entries beyond QB_MAX_FILTER_COUNT are silently dropped.
-    //  Unexpected array values for scalar operators are flattened to a CSV string.
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Filters
+    // Applies per-column filter conditions from ?filters[col][operator]=&value=
+    // Supports own columns and relation columns via dot-notation (any depth).
+    // Relation filters are applied via nested whereHas chains.
+    // Own column filters are table-qualified to prevent JOIN ambiguity.
+    // Excess filter entries beyond QB_MAX_FILTER_COUNT are silently dropped.
+    // Unexpected array values for scalar operators are flattened to a CSV string.
+    // ──────────────────────────────────────────────────
 
     private function qbApplyFilters(Builder $query, array $p): Builder
     {
@@ -589,15 +589,15 @@ trait QueryBuilder
         };
     }
 
-    // =========================================================================
-    //  SORTING
-    //  Supports comma-separated columns with matching per-column directions.
-    //  Own columns are table-qualified to prevent JOIN ambiguity.
-    //  Relation columns (1-level only) are sorted via a SELECT subquery —
-    //  this avoids duplicate rows and pagination count errors that JOINs cause.
-    //  Rows with no matching related record sort to the bottom (NULL-last).
-    //  Only successfully applied sorts are stored and returned in the meta.
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Sorting
+    // Supports comma-separated columns with matching per-column directions.
+    // Own columns are table-qualified to prevent JOIN ambiguity.
+    // Relation columns (1-level only) are sorted via a SELECT subquery —
+    // this avoids duplicate rows and pagination count errors that JOINs cause.
+    // Rows with no matching related record sort to the bottom (NULL-last).
+    // Only successfully applied sorts are stored and returned in the meta.
+    // ──────────────────────────────────────────────────
 
     private function qbApplySorting(Builder $query, array $p): Builder
     {
@@ -771,14 +771,14 @@ trait QueryBuilder
         }
     }
 
-    // =========================================================================
-    //  DATE RANGE
-    //  Filters by a date/datetime column between an optional from and to value.
-    //  The column is validated against the real table schema before applying.
-    //  Full-day precision: from uses 00:00:00 and to uses 23:59:59 so that
-    //  DATETIME/TIMESTAMP columns include the entire last day of the range.
-    //  The column is table-qualified to prevent JOIN ambiguity.
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Date Range
+    // Filters by a date/datetime column between an optional from and to value.
+    // The column is validated against the real table schema before applying.
+    // Full-day precision: from uses 00:00:00 and to uses 23:59:59 so that
+    // DATETIME/TIMESTAMP columns include the entire last day of the range.
+    // The column is table-qualified to prevent JOIN ambiguity.
+    // ──────────────────────────────────────────────────
 
     private function qbApplyDateRange(Builder $query, array $p): Builder
     {
@@ -805,13 +805,13 @@ trait QueryBuilder
         return $query;
     }
 
-    // =========================================================================
-    //  EAGER LOADING
-    //  Loads relations requested via ?with[]=
-    //  Only relations listed in $allowedRelations are permitted.
-    //  Relation paths deeper than QB_MAX_RELATION_DEPTH dots are stripped
-    //  to prevent expensive deep eager-load graphs.
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Eager Loading
+    // Loads relations requested via ?with[]=
+    // Only relations listed in $allowedRelations are permitted.
+    // Relation paths deeper than QB_MAX_RELATION_DEPTH dots are stripped
+    // to prevent expensive deep eager-load graphs.
+    // ──────────────────────────────────────────────────
 
     private function qbApplyEagerLoad(Builder $query, array $p): Builder
     {
@@ -839,21 +839,21 @@ trait QueryBuilder
         return $query;
     }
 
-    // =========================================================================
-    //  NESTED WHEREHAS BUILDER
-    //  Converts a dot-notation field into a nested whereHas chain.
-    //  The $callback receives the deepest (leaf) Builder instance.
+    // ──────────────────────────────────────────────────
+    // Nested WhereHas Builder
+    // Converts a dot-notation field into a nested whereHas chain.
+    // The $callback receives the deepest (leaf) Builder instance.
     //
-    //  Example — 'roles.permissions.name':
-    //    whereHas('roles', fn =>
-    //      whereHas('permissions', fn =>
-    //        $callback($leafBuilder)
-    //      )
-    //    )
+    // Example — 'roles.permissions.name':
+    //   whereHas('roles', fn =>
+    //     whereHas('permissions', fn =>
+    //       $callback($leafBuilder)
+    //     )
+    //   )
     //
-    //  Invalid or misspelled relation names are silently skipped via try/catch.
-    //  Pass $useOrWhere = true to wrap the top-level chain in orWhere (for search).
-    // =========================================================================
+    // Invalid or misspelled relation names are silently skipped via try/catch.
+    // Pass $useOrWhere = true to wrap the top-level chain in orWhere (for search).
+    // ──────────────────────────────────────────────────
 
     private function qbWhereHasNested(
         Builder  $query,
@@ -886,9 +886,9 @@ trait QueryBuilder
             : $buildChain($query, $parts);
     }
 
-    // =========================================================================
-    //  UTILITY HELPERS
-    // =========================================================================
+    // ──────────────────────────────────────────────────
+    // Utility Helpers
+    // ──────────────────────────────────────────────────
 
     /**
      * Walk a chain of Eloquent relation names on a model instance and return
